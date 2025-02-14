@@ -58,38 +58,54 @@ class Sticky {
     element.previousSibling.appendChild(element);
   }
 
-  activate(element) {
-    if (
-      (element.sticky.rect.top + element.sticky.rect.height < element.sticky.container.rect.top + element.sticky.container.rect.height) &&
-      (element.sticky.stickyFor < this.vp.width) &&
-      !element.sticky.active
-    ) {
-      element.sticky.active = true;
-    }
-    if (!this.elements.includes(element)) this.elements.push(element);
-    if (!element.sticky.resizeEvent) this.initResizeEvents(element);
-    if (!element.sticky.scrollEvent) this.initScrollEvents(element);
+ activate(element) {
+    const { sticky } = element;
+    const { container, rect, stickyFor, active } = sticky;
+
+    const isWithinBounds = rect.top + rect.height < container.rect.top + container.rect.height;
+    const shouldActivate = isWithinBounds && stickyFor < this.vp.width && !active;
+
+    if (shouldActivate) sticky.active = true;
+
+    this.registerElement(element);
     this.setPosition(element);
   }
-
+  
+  registerElement(element) {
+      if (!this.elements.includes(element)) this.elements.push(element);
+      this.registerEvent(element, 'resize', this.initResizeEvents);
+      this.registerEvent(element, 'scroll', this.initScrollEvents);
+  }
+  
+  registerEvent(element, type, initMethod) {
+      const eventKey = `${type}Event`;
+      if (!element.sticky[eventKey]) initMethod.call(this, element);
+  }
+  
   initResizeEvents(element) {
-    element.sticky.resizeListener = () => this.onResizeEvents(element);
-    window.addEventListener('resize', element.sticky.resizeListener);
+      element.sticky.resizeListener = () => this.onResizeEvents(element);
+      window.addEventListener('resize', element.sticky.resizeListener);
   }
-
+  
   destroyResizeEvents(element) {
-    window.removeEventListener('resize', element.sticky.resizeListener);
+      window.removeEventListener('resize', element.sticky.resizeListener);
+  }
+  
+  onResizeEvents(element) {
+      this.updateElementState(element);
+      this.setPosition(element);
   }
 
-  onResizeEvents(element) {
-    this.vp = this.getViewportSize();
-    element.sticky.rect = this.getRectangle(element);
-    element.sticky.container.rect = this.getRectangle(element.sticky.container);
-    element.sticky.active =
-      (element.sticky.rect.top + element.sticky.rect.height < element.sticky.container.rect.top + element.sticky.container.rect.height) &&
-      (element.sticky.stickyFor < this.vp.width);
-    this.setPosition(element);
+  updateElementState(element) {
+      const { sticky } = element;
+      this.vp = this.getViewportSize();
+      sticky.rect = this.getRectangle(element);
+      sticky.container.rect = this.getRectangle(sticky.container);
+  
+      const isWithinBounds = sticky.rect.top + sticky.rect.height < sticky.container.rect.top + sticky.container.rect.height;
+      sticky.active = isWithinBounds && sticky.stickyFor < this.vp.width;
   }
+
 
   initScrollEvents(element) {
     element.sticky.scrollListener = () => this.onScrollEvents(element);
